@@ -1,16 +1,12 @@
 package com.example.lin.soundlab;
 
 import android.app.Activity;
-import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MicrophoneInfo;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 import android.widget.Spinner;
-import android.widget.TextView;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -19,7 +15,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 
 
 public class RecordThread implements Runnable {
@@ -189,8 +184,6 @@ public class RecordThread implements Runnable {
             }
         });
     }
-
-    //set process thread
 
 
 }

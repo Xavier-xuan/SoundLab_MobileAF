@@ -39,6 +39,7 @@ import java.util.Date;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "SoundLabMainActivity";
+    @SuppressWarnings("deprecation")
     private static final String storagePath = Environment.getExternalStorageDirectory().getAbsolutePath();
     private static final String appPath = storagePath+"/"+"SoundLab";
     private static final String playListPath = appPath+"/"+"PlayList";
