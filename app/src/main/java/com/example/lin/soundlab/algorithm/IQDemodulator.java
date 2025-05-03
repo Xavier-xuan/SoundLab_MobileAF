@@ -1,10 +1,6 @@
 package com.example.lin.soundlab.algorithm;
 
-import com.example.lin.soundlab.algorithm.util.FiltFilt;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.api.ops.impl.transforms.strict.Cos;
-import org.nd4j.linalg.api.ops.impl.transforms.strict.Sin;
+import com.example.lin.soundlab.algorithm.util.FiltFiltBeta;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -60,8 +56,8 @@ public class IQDemodulator {
         double[] Q_merged = mergeThree(qCache.peekFirst(), qCache.peekLast(), Q_now);
 
         // 滤波
-        double[] I_filt = FiltFilt.filtfiltButterworth(I_merged, filterOrder, cutoffFreq, sampleRate);
-        double[] Q_filt = FiltFilt.filtfiltButterworth(Q_merged, filterOrder, cutoffFreq, sampleRate);
+        double[] I_filt = FiltFiltBeta.filtfiltButterworth(I_merged, filterOrder, cutoffFreq, sampleRate);
+        double[] Q_filt = FiltFiltBeta.filtfiltButterworth(Q_merged, filterOrder, cutoffFreq, sampleRate);
 
         // 只输出中间段（i-1）
         /*

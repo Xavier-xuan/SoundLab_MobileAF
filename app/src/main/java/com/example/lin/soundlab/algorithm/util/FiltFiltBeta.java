@@ -2,7 +2,7 @@ package com.example.lin.soundlab.algorithm.util;
 
 import uk.me.berndporr.iirj.Butterworth;
 
-public class FiltFilt {
+public class FiltFiltBeta {
 
     // 反转数组
     public static double[] reverse(double[] input) {

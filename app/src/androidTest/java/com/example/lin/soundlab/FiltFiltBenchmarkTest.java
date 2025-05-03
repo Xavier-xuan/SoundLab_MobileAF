@@ -2,7 +2,7 @@ package com.example.lin.soundlab;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import com.example.lin.soundlab.algorithm.util.FiltFilt;
+import com.example.lin.soundlab.algorithm.util.FiltFiltBeta;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,14 +27,14 @@ public class FiltFiltBenchmarkTest {
             double[] input = generateSignal(size);
 
             // 预热运行一次（JIT 优化 + 内存缓存）
-            FiltFilt.filtfiltButterworth(input, filterOrder, cutoff, sampleRate);
+            FiltFiltBeta.filtfiltButterworth(input, filterOrder, cutoff, sampleRate);
 
             double totalTimeMs = 0.0;
             double totalSum = 0.0;
 
             for (int i = 0; i < REPEAT_TIMES; i++) {
                 long start = System.nanoTime();
-                double[] output = FiltFilt.filtfiltButterworth(input, filterOrder, cutoff, sampleRate);
+                double[] output = FiltFiltBeta.filtfiltButterworth(input, filterOrder, cutoff, sampleRate);
                 long end = System.nanoTime();
 
                 double elapsedMs = (end - start) / 1e6;
