@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.util.Log;
 import android.widget.TextView;
 
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class LogThread implements Runnable{

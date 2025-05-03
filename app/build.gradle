@@ -6,12 +6,23 @@ plugins {
 android {
     compileSdk 35
 
+    packagingOptions {
+        exclude 'META-INF/native-image/**/**.json'
+        exclude 'META-INF/native-image/*.json'
+        pickFirst 'nd4j-native.properties'
+    }
+
     defaultConfig {
         applicationId "com.example.lin.soundlab"
-        minSdk 35
-        targetSdk 35
+        minSdk 30
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 30
         versionCode 3
         versionName "1.2"
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -35,13 +46,52 @@ android {
     namespace 'com.example.lin.soundlab'
 }
 
-dependencies {
+configurations {
+    javacpp
+}
 
+task javacppExtract(type: Copy) {
+    dependsOn configurations.javacpp
+
+    from { configurations.javacpp.collect { zipTree(it) } }
+    include "lib/**"
+    into "$buildDir/javacpp/"
+    android.sourceSets.main.jniLibs.srcDirs += ["$buildDir/javacpp/lib/"]
+
+    tasks.getByName('preBuild').dependsOn javacppExtract
+}
+
+
+dependencies {
+    def dl4jVersion = '1.0.0-M2'
+    def openblasVersion = '0.3.19-1.5.7'
+
+    // 本地 jar 包（如有）
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    // Android 基础库
     implementation 'androidx.appcompat:appcompat:1.2.0'
     implementation 'com.google.android.material:material:1.3.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
-    implementation 'androidx.core:core-ktx:1.16.0'
-    testImplementation 'junit:junit:4.+'
+    implementation 'androidx.core:core-ktx:1.6.0'
+
+    // 测试相关
+    testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+
+    // ND4J + OpenBLAS for Android (arm64 only)
+    implementation "org.nd4j:nd4j-native-platform:$dl4jVersion"
+    implementation "org.bytedeco:openblas-platform:$openblasVersion"
+
+
+    // 可选：如果你没有使用 DL4J 的高级 API，可不加下面这个依赖
+    // implementation "org.deeplearning4j:deeplearning4j-core:$dl4jVersion"
+
+    // IIR 滤波器：纯 Java 实现，轻量，适用于音频/生理信号
+    implementation 'uk.me.berndporr:iirj:1.7'
+
+    // Lombok（可选）
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
 }

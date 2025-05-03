@@ -5,6 +5,7 @@ import android.media.AudioFormat;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.example.lin.soundlab.algorithm.IQDemodulator;
 import com.example.lin.soundlab.view.WaveformView;
 
 import java.util.Locale;
@@ -17,17 +18,12 @@ public class ProcessThread implements Runnable {
     private static SonicQueue sonicQueue = new SonicQueue();
 
 
-    private static int processFrequency = 10;
+    private static int processFrequency = 2;
     private static int samplingRate = 48000;
-    private static final int groupSize = 12;
-    private static final int downSampleFactor = 10;
+    private static final int downSampleFactor = 48;
     private static int processBufferDataSize = samplingRate / processFrequency;
     private static short[] processBufferData = new short[processBufferDataSize];
     private static int channel;
-
-    private static float[] groupSamplesMono = new float[processBufferDataSize / downSampleFactor / groupSize];
-    private static float[][] groupedVolumesStereo = new float[2][processBufferDataSize / downSampleFactor / groupSize / 2];
-
 
     private Activity superActivity;
     private TextView textviewTotalVolume;
@@ -40,8 +36,11 @@ public class ProcessThread implements Runnable {
     private TextView textviewBufferUsage;
 
     // Realtime Waveform Related
-    private WaveformView channel1WaveformView;
-    private WaveformView channel2WaveformView;
+    private WaveformView waveformViewCH1;
+    private WaveformView waveformViewCH2;
+
+    private IQDemodulator iqDemodulatorCH1;
+    private IQDemodulator iqDemodulatorCH2;
 
 
     @Override
@@ -92,8 +91,12 @@ public class ProcessThread implements Runnable {
         progressbarBufferUsage = superActivity.findViewById(R.id.progressbarBufferUsage);
         textviewBufferUsage = superActivity.findViewById(R.id.textviewBufferUsage);
 
-        channel1WaveformView = superActivity.findViewById(R.id.Channel1WaveformView);
-        channel2WaveformView = superActivity.findViewById(R.id.Channel2WaveformView);
+        waveformViewCH1 = superActivity.findViewById(R.id.Channel1WaveformView);
+        waveformViewCH2 = superActivity.findViewById(R.id.Channel2WaveformView);
+
+        int channelBufferSize = recordChannel == AudioFormat.CHANNEL_IN_MONO ? processBufferDataSize : processBufferDataSize / 2;
+        iqDemodulatorCH1 = new IQDemodulator(samplingRate, 18000, 3, 50, channelBufferSize);
+        iqDemodulatorCH2 = new IQDemodulator(samplingRate, 18000, 3, 50, channelBufferSize);
     }
 
     private void process() {
@@ -113,57 +116,43 @@ public class ProcessThread implements Runnable {
         // MONO mode
         if (channel == AudioFormat.CHANNEL_IN_MONO) {
             long sum = 0;
-            long groupSum = 0;
-            int groupIdx2Write = 0;
-            short groupCounter = 0;
 
             for (int i = 0; i < processBufferDataSize; i = i + downSampleFactor) {
                 long result = processBufferData[i] * processBufferData[i];
                 sum += result;
-                groupSum += result;
-
-                groupCounter++;
-                if (groupCounter == groupSize){
-                    groupSamplesMono[groupIdx2Write] = (float)(10 * Math.log10( (double) groupSum / groupSize));
-                    groupIdx2Write++;
-                    groupCounter = 0;
-                }
             }
-
 
             double mean = sum / (double) (processBufferDataSize / downSampleFactor);
             double volume = 10 * Math.log10(mean);
             double volumeWithCorrection = volumeCorrection(volume);
             LogThread.debugLog(0, TAG, "volume: " + volumeWithCorrection);
 
-            updateUI(volumeWithCorrection, volumeWithCorrection, volumeWithCorrection, bufferUsage, groupSamplesMono, null);
+            double[] bufferDouble = new double[processBufferDataSize];
+            for (int i = 0; i < processBufferDataSize; i++) {
+                bufferDouble[i] = (double) processBufferData[i] / 32768;
+            }
+
+            // IQ 解调处理
+            double[] demodulatedPhase = iqDemodulatorCH1.demodulateStream(bufferDouble);
+
+            // 降采样（简单方式：每 downSampleFactor 个点取一个）
+            int downSampledLength = demodulatedPhase.length / downSampleFactor;
+            float[] downSampled = new float[downSampledLength];
+            for (int i = 0; i < downSampledLength; i++) {
+                downSampled[i] = (float) demodulatedPhase[i * downSampleFactor];
+            }
+
+            updateUI(volumeWithCorrection, volumeWithCorrection, volumeWithCorrection, bufferUsage, downSampled, null);
         }
 
         // STEREO mode
         if (channel == AudioFormat.CHANNEL_IN_STEREO) {
             long sum1 = 0;
             long sum2 = 0;
-            long groupSum1 = 0;
-            long groupSum2 = 0;
-            int groupIdx2Write = 0;
-            short groupCounter = 0;
-            for (int i = 0; i < processBufferDataSize; i = i + 2 * downSampleFactor) {
-                long result1 = processBufferData[i] * processBufferData[i];
-                long result2 = processBufferData[i + 1] * processBufferData[i + 1];
-                groupSum1 += result1;
-                groupSum2 += result2;
-                sum1 += result1;
-                sum2 += result2;
 
-                groupCounter++;
-                if (groupCounter == groupSize){
-                    groupedVolumesStereo[0][groupIdx2Write] = (float) (10 * Math.log10( (double) groupSum1 / groupSize));
-                    groupedVolumesStereo[1][groupIdx2Write] = (float) (10 * Math.log10( (double) groupSum2 / groupSize));
-                    groupIdx2Write++;
-                    groupCounter = 0;
-                    groupSum1 = 0;
-                    groupSum2 = 0;
-                }
+            for (int i = 0; i < processBufferDataSize; i = i + 2 * downSampleFactor) {
+                sum1 += processBufferData[i] * processBufferData[i];
+                sum2 += processBufferData[i + 1] * processBufferData[i + 1];
             }
 
             double volume1 = 10 * Math.log10(((double) sum1 / ((double) processBufferDataSize / downSampleFactor)) * 2);
@@ -171,7 +160,23 @@ public class ProcessThread implements Runnable {
             double volume1WithCorrection = volumeCorrection(volume1);
             double volume2WithCorrection = volumeCorrection(volume2);
 
-            updateUI(volume1WithCorrection, volume2WithCorrection, (volume1WithCorrection + volume2WithCorrection) / 2, bufferUsage, groupedVolumesStereo[0], groupedVolumesStereo[1]);
+            double[][] bufferDouble = new double[2][processBufferDataSize / 2];
+            for (int i = 0; i < processBufferDataSize; i = i + 2) {
+                bufferDouble[0][i / 2] = (double) processBufferData[i] / 32768;
+                bufferDouble[1][i / 2] = (double) processBufferData[i + 1] / 32768;
+            }
+            double[] demodulatedPhaseCH1 = iqDemodulatorCH1.demodulateStream(bufferDouble[0]);
+            double[] demodulatedPhaseCH2 = iqDemodulatorCH2.demodulateStream(bufferDouble[1]);
+
+            // 降采样（简单方式：每 downSampleFactor 个点取一个）
+            int downSampledLength = demodulatedPhaseCH1.length / downSampleFactor;
+            float[][] downSampled = new float[2][downSampledLength];
+            for (int i = 0; i < downSampledLength; i++) {
+                downSampled[0][i] = (float) demodulatedPhaseCH1[i * downSampleFactor];
+                downSampled[1][i] = (float) demodulatedPhaseCH2[i * downSampleFactor];
+            }
+
+            updateUI(volume1WithCorrection, volume2WithCorrection, (volume1WithCorrection + volume2WithCorrection) / 2, bufferUsage, downSampled[0], downSampled[1]);
         }
 
     }
@@ -242,14 +247,14 @@ public class ProcessThread implements Runnable {
             progressbarBufferUsage.setProgress((int) (bufferUsage * 100));
             textviewTotalVolume.setText(String.format(Locale.US, "%.2f", totalVolume));
 
-            if(channel1Waveform != null){
-                channel1WaveformView.appendWaveform(channel1Waveform);
-                channel1WaveformView.invalidate();
+            if (channel1Waveform != null) {
+                waveformViewCH1.appendWaveform(channel1Waveform);
+                waveformViewCH1.invalidate();
             }
 
-            if (channel2Waveform != null){
-                channel2WaveformView.appendWaveform(channel2Waveform);
-                channel2WaveformView.invalidate();
+            if (channel2Waveform != null) {
+                waveformViewCH2.appendWaveform(channel2Waveform);
+                waveformViewCH2.invalidate();
             }
         });
     }
