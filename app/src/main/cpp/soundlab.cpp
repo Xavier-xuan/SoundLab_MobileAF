@@ -8,9 +8,11 @@
 #include "corr_score/coder_array.h"
 #include "corr_score/corr_score_initialize.h"
 #include "corr_score/corr_score_terminate.h"
+#include "FiltfiltOrderThreeButter/FiltfiltOrderThreeButter.h"
+
 extern "C"
 JNIEXPORT jdouble JNICALL
-Java_com_example_lin_soundlab_algorithm_FreqScore_run(JNIEnv *env, jobject, jdoubleArray jSignals, jint numChannels, jint sigLength, jint fs) {
+Java_com_example_lin_soundlab_algorithm_FreqScoreC_run(JNIEnv *env, jobject, jdoubleArray jSignals, jint numChannels, jint sigLength, jint fs) {
     // 1. 获取数组长度，确认是否匹配
     jsize inputLen = env->GetArrayLength(jSignals);
     if (inputLen != numChannels * sigLength) {
@@ -46,7 +48,7 @@ Java_com_example_lin_soundlab_algorithm_FreqScore_run(JNIEnv *env, jobject, jdou
 
 extern "C"
 JNIEXPORT jdouble JNICALL
-Java_com_example_lin_soundlab_algorithm_CorrScore_run(JNIEnv *env, jobject, jdoubleArray jSignals, jint numChannels, jint sigLength) {
+Java_com_example_lin_soundlab_algorithm_CorrScoreC_run(JNIEnv *env, jobject, jdoubleArray jSignals, jint numChannels, jint sigLength) {
     // 总长度校验
     jsize inputLen = env->GetArrayLength(jSignals);
     if (inputLen != numChannels * sigLength) {
@@ -77,4 +79,42 @@ Java_com_example_lin_soundlab_algorithm_CorrScore_run(JNIEnv *env, jobject, jdou
     env->ReleaseDoubleArrayElements(jSignals, inputData, 0);
 
     return result;
+}
+
+extern "C"
+JNIEXPORT jdoubleArray JNICALL
+Java_com_example_lin_soundlab_algorithm_util_FiltfiltOrderThreeButterC_run(
+        JNIEnv *env,
+        jclass /* this */,
+        jdoubleArray inputArray,
+        jdouble cutoffFreq,
+        jdouble fs) {
+
+    // Step 1: 获取输入数组长度
+    jsize length = env->GetArrayLength(inputArray);
+    if (length == 0) return nullptr;
+
+    // Step 2: 将 jdoubleArray 转换为 coder::array<double, 2U> 的 [1, N] 矩阵
+    jdouble *elements = env->GetDoubleArrayElements(inputArray, nullptr);
+
+    coder::array<double, 2U> x;
+    x.set_size(1, length);  // 1 行 N 列
+
+    for (jsize i = 0; i < length; ++i) {
+        x[i] = elements[i];
+    }
+
+    env->ReleaseDoubleArrayElements(inputArray, elements, JNI_ABORT);
+
+    // Step 3: 输出结果
+    coder::array<double, 2U> result;
+    FiltfiltOrderThreeButter(x, cutoffFreq, fs, result);
+
+    // Step 4: 将输出 result 转换为 jdoubleArray 返回（仍为一维 double[]）
+    jdoubleArray output = env->NewDoubleArray(result.size(1));  // 输出为 [1 x N]
+    if (output == nullptr) return nullptr;
+
+    env->SetDoubleArrayRegion(output, 0, result.size(1), result.data());
+
+    return output;
 }

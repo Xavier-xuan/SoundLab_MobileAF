@@ -1,6 +1,6 @@
 package com.example.lin.soundlab.algorithm;
 
-public class CorrScorePure {
+public class CorrScoreJava {
 
     /**
      * @param signals 2D double array of shape [numChannels][numSamples]

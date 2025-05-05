@@ -1,6 +1,7 @@
 package com.example.lin.soundlab.algorithm;
 
-import com.example.lin.soundlab.algorithm.util.FiltFiltBeta;
+import com.example.lin.soundlab.algorithm.util.FiltfiltOrderThreeButterC;
+import com.example.lin.soundlab.algorithm.util.UnwrapJava;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -9,7 +10,6 @@ public class IQDemodulator {
 
     private final double sampleRate;
     private final double carrierFreq;
-    private final int filterOrder;
     private final double cutoffFreq;
     private final int bufferLength;
 
@@ -18,11 +18,9 @@ public class IQDemodulator {
     private final Deque<double[]> qCache = new ArrayDeque<>(2);
     private long totalSampleIndex = 0;
 
-
-    public IQDemodulator(double sampleRate, double carrierFreq, int filterOrder, double cutoffFreq, int bufferLength) {
+    public IQDemodulator(double sampleRate, double carrierFreq, double cutoffFreq, int bufferLength) {
         this.sampleRate = sampleRate;
         this.carrierFreq = carrierFreq;
-        this.filterOrder = filterOrder;
         this.cutoffFreq = cutoffFreq;
         this.bufferLength = bufferLength;
 
@@ -31,6 +29,7 @@ public class IQDemodulator {
         iCache.addLast(new double[bufferLength]);
         qCache.addLast(new double[bufferLength]);
         qCache.addLast(new double[bufferLength]);
+
     }
 
     /**
@@ -56,9 +55,8 @@ public class IQDemodulator {
         double[] Q_merged = mergeThree(qCache.peekFirst(), qCache.peekLast(), Q_now);
 
         // 滤波
-        double[] I_filt = FiltFiltBeta.filtfiltButterworth(I_merged, filterOrder, cutoffFreq, sampleRate);
-        double[] Q_filt = FiltFiltBeta.filtfiltButterworth(Q_merged, filterOrder, cutoffFreq, sampleRate);
-
+        double[] I_filt = FiltfiltOrderThreeButterC.run(I_merged, cutoffFreq, sampleRate);
+        double[] Q_filt = FiltfiltOrderThreeButterC.run(Q_merged, cutoffFreq, sampleRate);
         // 只输出中间段（i-1）
         /*
           ATTENTION
@@ -78,7 +76,8 @@ public class IQDemodulator {
         qCache.addLast(Q_now);
 
         totalSampleIndex += bufferLength;
-        return result;
+
+        return UnwrapJava.unwrapHalfPhase(result);
     }
 
     private double[] mergeThree(double[] a, double[] b, double[] c) {

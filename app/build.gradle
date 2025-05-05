@@ -27,7 +27,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                cppFlags ''
+                cppFlags '-O3'
             }
         }
     }
@@ -91,9 +91,9 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 
-    // ND4J + OpenBLAS for Android (arm64 only)
-    implementation "org.nd4j:nd4j-native-platform:$dl4jVersion"
-    implementation "org.bytedeco:openblas-platform:$openblasVersion"
+//    // ND4J + OpenBLAS for Android (arm64 only)
+//    implementation "org.nd4j:nd4j-native-platform:$dl4jVersion"
+//    implementation "org.bytedeco:openblas-platform:$openblasVersion"
 
 
     // 可选：如果你没有使用 DL4J 的高级 API，可不加下面这个依赖
@@ -103,6 +103,6 @@ dependencies {
     implementation 'uk.me.berndporr:iirj:1.7'
 
     // Lombok（可选）
-    annotationProcessor 'org.projectlombok:lombok:1.18.30'
-    compileOnly 'org.projectlombok:lombok:1.18.30'
+//    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+//    compileOnly 'org.projectlombok:lombok:1.18.30'
 }

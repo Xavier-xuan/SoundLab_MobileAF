@@ -1,9 +1,9 @@
 package com.example.lin.soundlab.algorithm;
 
-public class FreqScore {
+public class CorrScoreC {
     static {
         System.loadLibrary("soundlab");  // 这里的名字要和你的 CMakeLists 中一致
     }
 
-    public native double run(double[] signals, int numChannels, int sigLength, int fs);
+    public native double run(double[] signals, int numChannels, int sigLength);
 }

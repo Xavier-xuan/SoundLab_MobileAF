@@ -6,9 +6,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.example.lin.soundlab.algorithm.IQDemodulator;
-import com.example.lin.soundlab.view.WaveformView;
+import com.example.lin.soundlab.algorithm.PulseWaveExtractor4Ch;
+import com.example.lin.soundlab.view.WaveformSurfaceView;
 
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 public class ProcessThread implements Runnable {
     private static final String TAG = "SoundLabProcessThread";
@@ -18,7 +20,7 @@ public class ProcessThread implements Runnable {
     private static SonicQueue sonicQueue = new SonicQueue();
 
 
-    private static int processFrequency = 2;
+    private static int processFrequency = 5;
     private static int samplingRate = 48000;
     private static final int downSampleFactor = 48;
     private static int processBufferDataSize = samplingRate / processFrequency;
@@ -36,11 +38,14 @@ public class ProcessThread implements Runnable {
     private TextView textviewBufferUsage;
 
     // Realtime Waveform Related
-    private WaveformView waveformViewCH1;
-    private WaveformView waveformViewCH2;
+    private PulseWaveExtractor4Ch pulseWaveExtractor4Ch;
+    private WaveformSurfaceView waveformViewCH1;
+    private WaveformSurfaceView waveformViewCH2;
+    private WaveformSurfaceView waveformViewCH3;
+    private WaveformSurfaceView waveformViewCH4;
 
-    private IQDemodulator iqDemodulatorCH1;
-    private IQDemodulator iqDemodulatorCH2;
+    private static final double[] carrierFreqs = {18e3, 19e3, 20e3, 21e3};
+
 
 
     @Override
@@ -50,7 +55,13 @@ public class ProcessThread implements Runnable {
         long lastTime = System.currentTimeMillis();
 
         while (true) {
-            process();
+            try {
+                process();
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
 
             long now = System.currentTimeMillis();
             long nextExpectedTime = lastTime + sleepIntervalMillis;
@@ -93,13 +104,15 @@ public class ProcessThread implements Runnable {
 
         waveformViewCH1 = superActivity.findViewById(R.id.Channel1WaveformView);
         waveformViewCH2 = superActivity.findViewById(R.id.Channel2WaveformView);
+        waveformViewCH3 = superActivity.findViewById(R.id.Channel3WaveformView);
+        waveformViewCH4 = superActivity.findViewById(R.id.Channel4WaveformView);
 
         int channelBufferSize = recordChannel == AudioFormat.CHANNEL_IN_MONO ? processBufferDataSize : processBufferDataSize / 2;
-        iqDemodulatorCH1 = new IQDemodulator(samplingRate, 18000, 3, 50, channelBufferSize);
-        iqDemodulatorCH2 = new IQDemodulator(samplingRate, 18000, 3, 50, channelBufferSize);
+
+        pulseWaveExtractor4Ch = new PulseWaveExtractor4Ch(samplingRate, carrierFreqs, 25, channelBufferSize);
     }
 
-    private void process() {
+    private void process() throws ExecutionException, InterruptedException {
         if (sonicQueue.getLength() < processBufferDataSize) {
             return;
         }
@@ -133,16 +146,19 @@ public class ProcessThread implements Runnable {
             }
 
             // IQ 解调处理
-            double[] demodulatedPhase = iqDemodulatorCH1.demodulateStream(bufferDouble);
+            double[][] demodulatedPhase = pulseWaveExtractor4Ch.extractAllChannels(bufferDouble);
 
             // 降采样（简单方式：每 downSampleFactor 个点取一个）
-            int downSampledLength = demodulatedPhase.length / downSampleFactor;
-            float[] downSampled = new float[downSampledLength];
+            int downSampledLength = demodulatedPhase[0].length / downSampleFactor;
+            float[][] downSampled = new float[4][downSampledLength];
             for (int i = 0; i < downSampledLength; i++) {
-                downSampled[i] = (float) demodulatedPhase[i * downSampleFactor];
+                downSampled[0][i] = (float) demodulatedPhase[0][i * downSampleFactor];
+                downSampled[1][i] = (float) demodulatedPhase[1][i * downSampleFactor];
+                downSampled[2][i] = (float) demodulatedPhase[2][i * downSampleFactor];
+                downSampled[3][i] = (float) demodulatedPhase[3][i * downSampleFactor];
             }
 
-            updateUI(volumeWithCorrection, volumeWithCorrection, volumeWithCorrection, bufferUsage, downSampled, null);
+            updateUI(volumeWithCorrection, volumeWithCorrection, volumeWithCorrection, bufferUsage, downSampled[0], downSampled[1], downSampled[2], downSampled[3]);
         }
 
         // STEREO mode
@@ -160,23 +176,25 @@ public class ProcessThread implements Runnable {
             double volume1WithCorrection = volumeCorrection(volume1);
             double volume2WithCorrection = volumeCorrection(volume2);
 
-            double[][] bufferDouble = new double[2][processBufferDataSize / 2];
+            double[] upperMicBuffer = new double[processBufferDataSize / 2];
             for (int i = 0; i < processBufferDataSize; i = i + 2) {
-                bufferDouble[0][i / 2] = (double) processBufferData[i] / 32768;
-                bufferDouble[1][i / 2] = (double) processBufferData[i + 1] / 32768;
+                upperMicBuffer[i / 2] = (double) processBufferData[i] / 32768;
             }
-            double[] demodulatedPhaseCH1 = iqDemodulatorCH1.demodulateStream(bufferDouble[0]);
-            double[] demodulatedPhaseCH2 = iqDemodulatorCH2.demodulateStream(bufferDouble[1]);
+
+            // IQ 解调处理
+            double[][] demodulatedPhase = pulseWaveExtractor4Ch.extractAllChannels(upperMicBuffer);
 
             // 降采样（简单方式：每 downSampleFactor 个点取一个）
-            int downSampledLength = demodulatedPhaseCH1.length / downSampleFactor;
-            float[][] downSampled = new float[2][downSampledLength];
+            int downSampledLength = demodulatedPhase[0].length / downSampleFactor;
+            float[][] downSampled = new float[4][downSampledLength];
             for (int i = 0; i < downSampledLength; i++) {
-                downSampled[0][i] = (float) demodulatedPhaseCH1[i * downSampleFactor];
-                downSampled[1][i] = (float) demodulatedPhaseCH2[i * downSampleFactor];
+                downSampled[0][i] = (float) demodulatedPhase[0][i * downSampleFactor];
+                downSampled[1][i] = (float) demodulatedPhase[1][i * downSampleFactor];
+                downSampled[2][i] = (float) demodulatedPhase[2][i * downSampleFactor];
+                downSampled[3][i] = (float) demodulatedPhase[3][i * downSampleFactor];
             }
 
-            updateUI(volume1WithCorrection, volume2WithCorrection, (volume1WithCorrection + volume2WithCorrection) / 2, bufferUsage, downSampled[0], downSampled[1]);
+            updateUI(volume1WithCorrection, volume2WithCorrection, (volume1WithCorrection + volume2WithCorrection) / 2, bufferUsage, downSampled[0], downSampled[1], downSampled[2], downSampled[3]);
         }
 
     }
@@ -239,7 +257,7 @@ public class ProcessThread implements Runnable {
         });
     }
 
-    private void updateUI(double volume1, double volume2, double totalVolume, double bufferUsage, float[] channel1Waveform, float[] channel2Waveform) {
+    private void updateUI(double volume1, double volume2, double totalVolume, double bufferUsage, float[] channel1Waveform, float[] channel2Waveform, float[] channel3Waveform, float[] channel4Waveform) {
         superActivity.runOnUiThread(() -> {
             setVolume1(volume1);
             setVolume2(volume2);
@@ -256,6 +274,17 @@ public class ProcessThread implements Runnable {
                 waveformViewCH2.appendWaveform(channel2Waveform);
                 waveformViewCH2.invalidate();
             }
+
+            if (channel3Waveform != null) {
+                waveformViewCH3.appendWaveform(channel3Waveform);
+                waveformViewCH3.invalidate();
+            }
+
+            if (channel4Waveform != null) {
+                waveformViewCH4.appendWaveform(channel4Waveform);
+                waveformViewCH4.invalidate();
+            }
+
         });
     }
 

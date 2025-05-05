@@ -318,7 +318,7 @@
             android:layout_height="5dp"
             android:background="?android:attr/listDivider" />
 
-        <com.example.lin.soundlab.view.WaveformView
+        <com.example.lin.soundlab.view.WaveformSurfaceView
             android:id="@+id/Channel1WaveformView"
             android:layout_width="match_parent"
             android:layout_height="100dp" />
@@ -330,8 +330,30 @@
             android:layout_height="5dp"
             android:background="?android:attr/listDivider" />
 
-        <com.example.lin.soundlab.view.WaveformView
+        <com.example.lin.soundlab.view.WaveformSurfaceView
             android:id="@+id/Channel2WaveformView"
+            android:layout_width="match_parent"
+            android:layout_height="100dp" />
+
+        <View
+            android:id="@+id/divider3"
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:background="?android:attr/listDivider" />
+
+        <com.example.lin.soundlab.view.WaveformSurfaceView
+            android:id="@+id/Channel3WaveformView"
+            android:layout_width="match_parent"
+            android:layout_height="100dp" />
+
+        <View
+            android:id="@+id/divider4"
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:background="?android:attr/listDivider" />
+
+        <com.example.lin.soundlab.view.WaveformSurfaceView
+            android:id="@+id/Channel4WaveformView"
             android:layout_width="match_parent"
             android:layout_height="100dp" />
 

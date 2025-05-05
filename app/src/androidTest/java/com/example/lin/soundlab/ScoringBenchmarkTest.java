@@ -4,9 +4,9 @@ import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import com.example.lin.soundlab.algorithm.CorrScore;
-import com.example.lin.soundlab.algorithm.CorrScorePure;
-import com.example.lin.soundlab.algorithm.FreqScore;
+import com.example.lin.soundlab.algorithm.CorrScoreC;
+import com.example.lin.soundlab.algorithm.CorrScoreJava;
+import com.example.lin.soundlab.algorithm.FreqScoreC;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +25,7 @@ public class ScoringBenchmarkTest {
         int fs = 128;
         int rounds = 5;
 
-        FreqScore freqScore = new FreqScore();
+        FreqScoreC freqScore = new FreqScoreC();
         double[] input = new double[numChannels * sigLength];
         Random rand = new Random(42);
 
@@ -33,7 +33,7 @@ public class ScoringBenchmarkTest {
             input[i] = rand.nextFloat() * 2 - 1;
         }
 
-        long totalTime = 0;
+        double totalTime = 0;
         for (int i = 0; i < rounds; i++) {
             long start = System.nanoTime();
             double result = freqScore.run(input, numChannels, sigLength, fs);
@@ -45,7 +45,7 @@ public class ScoringBenchmarkTest {
             Log.d(TAG, "Round " + (i + 1) + ": result=" + result + ", time=" + durationMs + " ms");
         }
 
-        float avgTime = totalTime / (float) rounds;
+        double avgTime = totalTime / (double) rounds;
         Log.i(TAG, "Avg JNI time over " + rounds + " rounds: " + avgTime + " ms");
     }
 
@@ -56,7 +56,7 @@ public class ScoringBenchmarkTest {
         int sigLength = 3840;
         int rounds = 5;
 
-        CorrScore corrScore = new CorrScore();
+        CorrScoreC corrScore = new CorrScoreC();
         double[] input = new double[numChannels * sigLength];
         Random rand = new Random(42);
 
@@ -64,7 +64,7 @@ public class ScoringBenchmarkTest {
             input[i] = rand.nextFloat() * 2 - 1;
         }
 
-        long totalTime = 0;
+        double totalTime = 0;
         for (int i = 0; i < rounds; i++) {
             long start = System.nanoTime();
             double result = corrScore.run(input, numChannels, sigLength);
@@ -76,7 +76,7 @@ public class ScoringBenchmarkTest {
             Log.d(TAG, "Round " + (i + 1) + ": result=" + result + ", time=" + durationMs + " ms");
         }
 
-        float avgTime = totalTime / (float) rounds;
+        double avgTime = totalTime / rounds;
         Log.i(TAG, "Avg JNI time over " + rounds + " rounds: " + avgTime + " ms");
     }
 
@@ -101,7 +101,7 @@ public class ScoringBenchmarkTest {
         // 2. 多轮测试
         for (int i = 0; i < rounds; i++) {
             long start = System.nanoTime();
-            double result = CorrScorePure.corrScore(signals);
+            double result = CorrScoreJava.corrScore(signals);
             long end = System.nanoTime();
 
             double durationMs = (end - start) / 1_000_000d;
@@ -110,7 +110,7 @@ public class ScoringBenchmarkTest {
             Log.d(TAG, "Round " + (i + 1) + ": result=" + result + ", time=" + durationMs + " ms");
         }
 
-        double avgTimeMs = totalTimeNs / 1_000_000.0 / rounds;
+        double avgTimeMs = totalTimeNs / 1_000_000.0d / rounds;
         Log.i(TAG, "Avg PURE CorrScore time over " + rounds + " rounds: " + avgTimeMs + " ms");
     }
 
@@ -136,7 +136,7 @@ public class ScoringBenchmarkTest {
             signals[3][t] = s4;
         }
 
-        double score = CorrScorePure.corrScore(signals);
+        double score = CorrScoreJava.corrScore(signals);
         Log.i(TAG, "Java corr_score = " + score);
 
     }
